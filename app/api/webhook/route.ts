@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createLicense } from '@/lib/licenses'
+import { sendLicenseEmail } from '@/lib/emails'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -24,16 +25,19 @@ export async function POST(req: NextRequest) {
     const licenseType = session.mode === 'subscription' ? 'subscription' : 'lifetime'
     const subscriptionId = session.subscription as string | undefined
 
-    await createLicense({
+    const license = await createLicense({
       email,
       type: licenseType,
       product_id: productId,
       stripe_subscription_id: subscriptionId,
     })
-  }
 
-  if (event.type === 'customer.subscription.deleted') {
-    // On gérera l'expiration des abonnements ici plus tard
+    await sendLicenseEmail({
+      email,
+      licenseKey: license.key,
+      productName: productId === 'maya-rig-v1' ? 'Maya Rig v1' : 'Maya Rig',
+      licenseType,
+    })
   }
 
   return NextResponse.json({ received: true })
